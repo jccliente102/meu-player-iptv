@@ -1,113 +1,115 @@
 import streamlit as st
 from streamlit_player import st_player
 import requests
-from datetime import datetime
+import pandas as pd
 
-# --- CONFIGURAÇÕES INICIAIS ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="JC VIP Player", layout="wide", initial_sidebar_state="expanded")
 
-# 1. COLOQUE SEUS DADOS DO PAINEL AQUI
-DNS = "http://seu-servidor.com:8080" # Exemplo: http://painel.tv:8080
-USER = "seu_usuario"
-PASS = "sua_senha"
-SENHA_ACESSO_APP = "12345" # Senha para o cliente entrar no app
+# --- ESTILIZAÇÃO CSS ---
+st.markdown("""
+    <style>
+    .stButton>button { width: 100%; border-radius: 8px; }
+    .movie-card { background-color: #1e1e1e; padding: 10px; border-radius: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- SISTEMA DE LOGIN E SEGURANÇA ---
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
+# --- INICIALIZAÇÃO DO ESTADO ---
+if "autenticado" not in st.session_state: st.session_state.autenticado = False
+if "vistos" not in st.session_state: st.session_state.vistos = []
+if "dados_conectados" not in st.session_state: st.session_state.dados_conectados = False
 
+# --- 1. TELA DE PROTEÇÃO (SENHA DO APP) ---
 if not st.session_state.autenticado:
     st.title("🔒 JC VIP - Acesso Restrito")
-    senha_dig = st.text_input("Digite sua senha de acesso:", type="password")
-    if st.button("Entrar no Player"):
-        if senha_dig == SENHA_ACESSO_APP:
+    senha_acesso = st.text_input("Digite a senha da Playlist:", type="password")
+    if st.button("Acessar Player"):
+        if senha_acesso == "12345": # Mude aqui sua senha master
             st.session_state.autenticado = True
             st.rerun()
         else:
             st.error("Senha incorreta!")
     st.stop()
 
-# --- MEMÓRIA DE CONTEÚDO (ASSISTIDOS) ---
-if "vistos" not in st.session_state:
-    st.session_state.vistos = set()
+# --- 2. BARRA LATERAL (CONFIGURAÇÃO E NAVEGAÇÃO) ---
+with st.sidebar:
+    st.title("📺 JC VIP")
+    
+    with st.expander("⚙️ CONEXÃO XTREAM (ADMIN)"):
+        dns = st.text_input("DNS/URL", placeholder="http://exemplo.com:8080")
+        user = st.text_input("Usuário")
+        pw = st.text_input("Senha", type="password")
+        if st.button("Conectar Painel"):
+            st.session_state.dns = dns.strip("/")
+            st.session_state.user = user
+            st.session_state.pw = pw
+            st.session_state.dados_conectados = True
+            st.success("Conectado!")
 
-def marcar_visto(id_video):
-    st.session_state.vistos.add(id_video)
+    st.divider()
+    menu = st.radio("Navegar", ["🏠 Início", "🎬 Filmes", "📺 Séries"])
+    
+    if st.button("🧹 Limpar Cache"):
+        st.cache_data.clear()
+        st.toast("Cache Limpo!")
 
-# --- INTERFACE PRINCIPAL ---
-st.sidebar.title("📺 JC VIP STREAMING")
-st.sidebar.caption(f"📅 Expira em: 03/06/2026") # Exemplo discreto
+# --- 3. LÓGICA DE CONTEÚDO ---
+if not st.session_state.dados_conectados:
+    st.warning("⚠️ Por favor, configure os dados do seu painel na barra lateral para carregar o conteúdo.")
+    st.stop()
 
-menu = st.sidebar.radio("Navegar por:", ["🎬 Filmes", "📺 Séries", "⚙️ Ajustes"])
+# URLs base do Xtream Codes
+base_url = f"{st.session_state.dns}/player_api.php?username={st.session_state.user}&password={st.session_state.pw}"
 
-# --- ABA DE FILMES ---
+# --- ABA FILMES ---
 if menu == "🎬 Filmes":
-    st.header("Biblioteca de Filmes")
+    st.header("🎬 Catálogo de Filmes")
     busca = st.text_input("🔍 Pesquisar filme...")
     
-    # Simulação de Galeria (Na integração final, usaremos requests no DNS)
+    # Exemplo de Grid (Na integração total, faríamos o request das categorias aqui)
     col1, col2, col3, col4 = st.columns(4)
-    
-    # Exemplo de Card de Filme
+    # Exemplo funcional de interface de detalhes
     with col1:
-        st.image("https://image.tmdb.org/t/p/w500/1E5baAa9S4fe96m0tqDlsSfqZBL.jpg", use_container_width=True)
-        if st.button("Ver Detalhes", key="movie_1"):
-            st.session_state.detalhe = "filme_1"
+        st.image("https://via.placeholder.com/300x450.png?text=Filme+Exemplo", use_container_width=True)
+        if st.button("Ver Detalhes", key="f1"):
+            st.session_state.selecionado = "filme_exemplo"
 
-    if st.session_state.get("detalhe") == "filme_1":
+    if st.session_state.get("selecionado") == "filme_exemplo":
         st.divider()
-        c_capa, c_info = st.columns([1, 2])
-        with c_capa:
-            st.image("https://image.tmdb.org/t/p/w500/1E5baAa9S4fe96m0tqDlsSfqZBL.jpg")
-        with c_info:
-            st.subheader("Sinopse do Filme")
-            st.write("Aqui aparecerá a descrição automática vinda do seu servidor Xtream Codes.")
-            
-            btn1, btn2 = st.columns(2)
-            with btn1:
-                if st.button("▶️ DAR O PLAY"):
-                    st_player(f"{DNS}/movie/{USER}/{PASS}/1.mp4")
-            with btn2:
-                st.link_button("🧡 Abrir no VLC", f"vlc://{DNS}/movie/{USER}/{PASS}/1.mp4")
+        c1, c2 = st.columns([1, 2])
+        with c1: st.image("https://via.placeholder.com/300x450.png?text=Filme+Exemplo")
+        with c2:
+            st.subheader("Sinopse")
+            st.write("Aqui o app mostrará a sinopse real vinda do seu servidor.")
+            b_play, b_vlc = st.columns(2)
+            stream_url = f"{st.session_state.dns}/movie/{st.session_state.user}/{st.session_state.pw}/ID_DO_FILME.mp4"
+            with b_play:
+                if st.button("▶️ Assistir Agora"): st_player(stream_url)
+            with b_vlc:
+                st.link_button("🧡 Abrir no VLC", f"vlc://{stream_url}")
 
-# --- ABA DE SÉRIES ---
+# --- ABA SÉRIES ---
 elif menu == "📺 Séries":
-    st.header("Séries e Documentários")
-    busca_s = st.text_input("🔍 Buscar Série...")
+    st.header("📺 Séries Separadas")
+    busca_s = st.text_input("🔍 Pesquisar série...")
     
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        st.image("https://image.tmdb.org/t/p/w500/8Ul69S0NAU9XpU6pS2BM9mJ6o6Q.jpg", width=200)
-        if st.button("Explorar Temporadas", key="serie_1"):
-            st.session_state.serie_id = "serie_1"
+    # Simulação de marcação de assistido
+    st.subheader("Episódios")
+    for i in range(1, 4):
+        ep_id = f"serie1_ep{i}"
+col_n, col_v, col_p = st.columns([3, 1, 1])
+        with col_n: st.write(f"Episódio {i} - O Despertar")
+        with col_v: 
+            status = "✅ Assistido" if ep_id in st.session_state.vistos else "⬜ Pendente"
+            st.write(status)
+        with col_p:
+            if st.button("Play", key=ep_id):
+                if ep_id not in st.session_state.vistos: st.session_state.vistos.append(ep_id)
+                st.rerun()
 
-    if st.session_state.get("serie_id") == "serie_1":
-        st.write("---")
-        temp = st.selectbox("Selecione a Temporada", ["Temporada 01", "Temporada 02"])
-        
-        # Lista de Episódios com Marcação de Assistido
-        for i in range(1, 4):
-            ep_key = f"S1E{i}"
-            ce1, ce2, ce3 = st.columns([3, 1, 1])
-            with ce1: st.write(f"Episódio {i} - Título do Episódio")
-            with ce2: 
-                status = "✅" if ep_key in st.session_state.vistos else "⬜"
-                st.write(status)
-            with ce3:
-                if st.button("Play", key=ep_key):
-                    marcar_visto(ep_key)
-                    st.toast(f"Reproduzindo {ep_key}")
-                    st_player(f"{DNS}/series/{USER}/{PASS}/{i}.mp4")
-
-# --- AJUSTES ---
+# --- ABA INÍCIO (AVISOS) ---
 else:
-    st.header("Configurações")
-    if st.button("🧹 Limpar Cache do App"):
-        st.cache_data.clear()
-        st.success("Cache limpo com sucesso!")
-    
-    if st.button("🚪 Sair do Aplicativo"):
-        st.session_state.autenticado = False
-        st.rerun()
-st.sidebar.divider()
-st.sidebar.info("Dica: Use o ícone no vídeo para espelhar via Chromecast.")
+    st.title("Bem-vindo ao seu Player VIP")
+    st.info("📅 Seu acesso está ativo. Vencimento: 03/06/2026")
+    # Lógica de aviso de 3 dias (Exemplo)
+    st.warning("⚠️ Atenção: Sua assinatura vence em 3 dias. Entre em contato para renovar!")
