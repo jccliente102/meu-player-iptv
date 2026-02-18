@@ -1,115 +1,102 @@
 import streamlit as st
 from streamlit_player import st_player
 import requests
-import pandas as pd
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+# --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="JC VIP Player", layout="wide", initial_sidebar_state="expanded")
 
-# --- ESTILIZAÇÃO CSS ---
-st.markdown("""
-    <style>
-    .stButton>button { width: 100%; border-radius: 8px; }
-    .movie-card { background-color: #1e1e1e; padding: 10px; border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- ESTADO DO APP ---
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+if "dados_conectados" not in st.session_state:
+    st.session_state.dados_conectados = False
+if "vistos" not in st.session_state:
+    st.session_state.vistos = []
 
-# --- INICIALIZAÇÃO DO ESTADO ---
-if "autenticado" not in st.session_state: st.session_state.autenticado = False
-if "vistos" not in st.session_state: st.session_state.vistos = []
-if "dados_conectados" not in st.session_state: st.session_state.dados_conectados = False
-
-# --- 1. TELA DE PROTEÇÃO (SENHA DO APP) ---
+# --- 1. TELA DE ACESSO (SENHA PLAYLIST) ---
 if not st.session_state.autenticado:
     st.title("🔒 JC VIP - Acesso Restrito")
     senha_acesso = st.text_input("Digite a senha da Playlist:", type="password")
     if st.button("Acessar Player"):
-        if senha_acesso == "12345": # Mude aqui sua senha master
+        if senha_acesso == "12345":
             st.session_state.autenticado = True
             st.rerun()
         else:
             st.error("Senha incorreta!")
     st.stop()
 
-# --- 2. BARRA LATERAL (CONFIGURAÇÃO E NAVEGAÇÃO) ---
+# --- 2. BARRA LATERAL (ADMIN E MENU) ---
 with st.sidebar:
     st.title("📺 JC VIP")
     
-    with st.expander("⚙️ CONEXÃO XTREAM (ADMIN)"):
-        dns = st.text_input("DNS/URL", placeholder="http://exemplo.com:8080")
-        user = st.text_input("Usuário")
-        pw = st.text_input("Senha", type="password")
-        if st.button("Conectar Painel"):
-            st.session_state.dns = dns.strip("/")
-            st.session_state.user = user
-            st.session_state.pw = pw
+    with st.expander("⚙️ CONEXÃO PAINEL (ADMIN)"):
+        dns_input = st.text_input("DNS/URL", placeholder="http://exemplo.com:8080")
+        user_input = st.text_input("Usuário")
+        pw_input = st.text_input("Senha", type="password")
+        if st.button("Conectar"):
+            st.session_state.dns = dns_input.strip("/")
+            st.session_state.user = user_input
+            st.session_state.pw = pw_input
             st.session_state.dados_conectados = True
             st.success("Conectado!")
 
     st.divider()
     menu = st.radio("Navegar", ["🏠 Início", "🎬 Filmes", "📺 Séries"])
-    
-    if st.button("🧹 Limpar Cache"):
-        st.cache_data.clear()
-        st.toast("Cache Limpo!")
 
-# --- 3. LÓGICA DE CONTEÚDO ---
+# --- 3. VERIFICAÇÃO DE DADOS ---
 if not st.session_state.dados_conectados:
-    st.warning("⚠️ Por favor, configure os dados do seu painel na barra lateral para carregar o conteúdo.")
+    st.warning("⚠️ Configure os dados do seu painel na lateral para carregar o conteúdo.")
     st.stop()
-
-# URLs base do Xtream Codes
-base_url = f"{st.session_state.dns}/player_api.php?username={st.session_state.user}&password={st.session_state.pw}"
 
 # --- ABA FILMES ---
 if menu == "🎬 Filmes":
     st.header("🎬 Catálogo de Filmes")
     busca = st.text_input("🔍 Pesquisar filme...")
     
-    # Exemplo de Grid (Na integração total, faríamos o request das categorias aqui)
     col1, col2, col3, col4 = st.columns(4)
-    # Exemplo funcional de interface de detalhes
     with col1:
         st.image("https://via.placeholder.com/300x450.png?text=Filme+Exemplo", use_container_width=True)
-        if st.button("Ver Detalhes", key="f1"):
-            st.session_state.selecionado = "filme_exemplo"
+        if st.button("Ver Detalhes", key="f_ex"):
+            st.session_state.detalhe_filme = True
 
-    if st.session_state.get("selecionado") == "filme_exemplo":
+    if st.session_state.get("detalhe_filme"):
         st.divider()
         c1, c2 = st.columns([1, 2])
-        with c1: st.image("https://via.placeholder.com/300x450.png?text=Filme+Exemplo")
+        with c1:
+            st.image("https://via.placeholder.com/300x450.png?text=Filme+Exemplo")
         with c2:
-            st.subheader("Sinopse")
-            st.write("Aqui o app mostrará a sinopse real vinda do seu servidor.")
+            st.subheader("Sinopse do Filme")
+            st.write("Aqui aparecerá a descrição vinda do seu servidor.")
             b_play, b_vlc = st.columns(2)
-            stream_url = f"{st.session_state.dns}/movie/{st.session_state.user}/{st.session_state.pw}/ID_DO_FILME.mp4"
+            url_stream = f"{st.session_state.dns}/movie/{st.session_state.user}/{st.session_state.pw}/1.mp4"
             with b_play:
-                if st.button("▶️ Assistir Agora"): st_player(stream_url)
+                if st.button("▶️ DAR O PLAY"):
+                    st_player(url_stream)
             with b_vlc:
-                st.link_button("🧡 Abrir no VLC", f"vlc://{stream_url}")
+                st.link_button("🧡 Abrir no VLC", f"vlc://{url_stream}")
 
 # --- ABA SÉRIES ---
 elif menu == "📺 Séries":
-    st.header("📺 Séries Separadas")
-    busca_s = st.text_input("🔍 Pesquisar série...")
+    st.header("📺 Catálogo de Séries")
+    st.write("---")
     
-    # Simulação de marcação de assistido
-    st.subheader("Episódios")
+    # Exemplo de Episódios com correção de espaços
     for i in range(1, 4):
-        ep_id = f"serie1_ep{i}"
-col_n, col_v, col_p = st.columns([3, 1, 1])
-        with col_n: st.write(f"Episódio {i} - O Despertar")
-        with col_v: 
+        ep_id = f"s1_ep{i}"
+        col_n, col_v, col_p = st.columns([3, 1, 1])
+        with col_n:
+            st.write(f"Episódio {i} - O Despertar")
+        with col_v:
             status = "✅ Assistido" if ep_id in st.session_state.vistos else "⬜ Pendente"
             st.write(status)
         with col_p:
             if st.button("Play", key=ep_id):
-                if ep_id not in st.session_state.vistos: st.session_state.vistos.append(ep_id)
+                if ep_id not in st.session_state.vistos:
+                    st.session_state.vistos.append(ep_id)
                 st.rerun()
 
-# --- ABA INÍCIO (AVISOS) ---
+# --- ABA INÍCIO ---
 else:
     st.title("Bem-vindo ao seu Player VIP")
-    st.info("📅 Seu acesso está ativo. Vencimento: 03/06/2026")
-    # Lógica de aviso de 3 dias (Exemplo)
-    st.warning("⚠️ Atenção: Sua assinatura vence em 3 dias. Entre em contato para renovar!")
+    st.info("📅 Seu acesso está ativo até: 03/06/2026")
+    st.warning("⚠️ Sua assinatura vence em 3 dias. Lembre-se de renovar!")
