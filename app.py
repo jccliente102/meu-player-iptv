@@ -2,87 +2,76 @@ import streamlit as st
 from streamlit_player import st_player
 import requests
 
+# --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="JC VIP Player", layout="wide")
 
-# --- LOGIN SIMPLES ---
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
+if "autenticado" not in st.session_state: st.session_state.autenticado = False
+if "conectado" not in st.session_state: st.session_state.conectado = False
 
+# --- LOGIN APP ---
 if not st.session_state.autenticado:
     st.title("🔒 JC VIP")
-    senha = st.text_input("Senha:", type="password")
-    if st.button("Entrar"):
-        if senha == "12345":
+    if st.text_input("Senha:", type="password") == "12345":
+        if st.button("Entrar"):
             st.session_state.autenticado = True
             st.rerun()
     st.stop()
 
-# --- CONFIGURAÇÃO NA LATERAL ---
+# --- CONFIGURAÇÃO PAINEL ---
 with st.sidebar:
-    st.header("⚙️ Configuração")
-    dns = st.text_input("DNS (ex: http://ka23.in)", value="http://ka23.in")
+    st.header("⚙️ Conexão")
+    dns = st.text_input("DNS", value="http://ka23.in")
     user = st.text_input("Usuário", value="jefferson01699")
     pw = st.text_input("Senha", type="password")
-    
-    if st.button("Conectar e Testar"):
-        # Limpa cache para forçar nova busca
-        st.cache_data.clear()
+    if st.button("Conectar"):
         st.session_state.url_base = f"{dns.strip('/')}/player_api.php?username={user}&password={pw}"
-        st.session_state.credenciais = {"dns": dns.strip('/'), "user": user, "pw": pw}
+        st.session_state.dados = {"dns": dns.strip('/'), "user": user, "pw": pw}
         st.session_state.conectado = True
-        st.success("Configuração Salva!")
+        st.success("Configurado!")
 
-if "conectado" not in st.session_state:
-    st.info("Preencha os dados ao lado e clique em Conectar.")
+if not st.session_state.conectado:
+    st.info("Configure os dados na lateral.")
     st.stop()
 
-# --- FUNÇÃO DE BUSCA COM DIAGNÓSTICO ---
-def buscar_dados(acao):
+# --- FUNÇÃO COM "DISFARCE" (USER-AGENT) ---
+def buscar_dados_v2(acao):
     url = f"{st.session_state.url_base}&action={acao}"
+    # Cabeçalhos que fingem ser um app real
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) Mag200 sb.app.html (SmartersPlayer)'
+    }
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             return response.json()
         else:
-            st.error(f"Erro no Servidor: Código {response.status_code}")
+            st.error(f"O Servidor ainda bloqueia: {response.status_code}")
             return []
-    except Exception as e:
-        st.error(f"Erro de Conexão: {e}")
+    except:
         return []
 
-# --- MENU ---
-aba = st.tabs(["📺 TV Ao Vivo", "🎬 Filmes", "🛠️ Diagnóstico"])
+# --- INTERFACE ---
+aba1, aba2 = st.tabs(["📡 Canais", "🎬 Filmes"])
 
-with aba[0]:
-    st.header("Canais")
-    if st.button("Carregar Canais Agora"):
-        dados = buscar_dados("get_live_streams")
-        if not dados:
-            st.warning("O servidor não retornou canais. Verifique Usuário/Senha.")
-        else:
-            st.success(f"{len(dados)} canais encontrados!")
-            for c in dados[:20]: # Mostra os primeiros 20
-                with st.expander(f"▶️ {c['name']}"):
-                    url_stream = f"{st.session_state.credenciais['dns']}/{st.session_state.credenciais['user']}/{st.session_state.credenciais['pw']}/{c['stream_id']}"
-                    st_player(url_stream)
+with aba1:
+    if st.button("🔄 Carregar Lista de Canais"):
+        with st.spinner("Buscando canais..."):
+            canais = buscar_dados_v2("get_live_streams")
+            if canais:
+                st.success(f"{len(canais)} Canais carregados!")
+                for c in canais[:25]:
+                    with st.expander(f"📺 {c['name']}"):
+                        stream = f"{st.session_state.dados['dns']}/{st.session_state.dados['user']}/{st.session_state.dados['pw']}/{c['stream_id']}"
+                        st_player(stream)
+            else:
+                st.warning("A lista voltou vazia. Verifique se o seu usuário está ativo no painel.")
 
-with aba[1]:
-    st.header("Filmes")
-    if st.button("Carregar Filmes"):
-        filmes = buscar_dados("get_vod_streams")
+with aba2:
+    if st.button("🔄 Carregar Filmes"):
+        filmes = buscar_dados_v2("get_vod_streams")
         if filmes:
-            st.success(f"{len(filmes)} filmes encontrados!")
-            # Criar colunas para as capas
             cols = st.columns(4)
             for i, f in enumerate(filmes[:12]):
                 with cols[i % 4]:
                     st.image(f.get('stream_icon', ''), use_container_width=True)
                     st.caption(f['name'])
-
-with aba[2]:
-    st.header("Painel de Controle")
-    st.write("Link de Teste gerado:")
-    st.code(f"{st.session_state.url_base}&action=get_live_streams")
-    if st.button("Testar Resposta Bruta"):
-        res = requests.get(f"{st.session_state.url_base}&action=get_live_streams")
-        st.text(res.text[:500]) # Mostra os primeiros 500 caracteres da resposta
